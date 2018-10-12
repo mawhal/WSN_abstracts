@@ -1,0 +1,75 @@
+---
+output: word_document
+---
+
+**POSTER TITLES**
+
+```{r, results='asis', echo=FALSE}
+# print header
+     cat(paste0("``*`` ", "indicates presenting author", "  \n",
+"&dagger; indicates eligibility for Best Student Paper/Poster Award", "  \n","\n"))
+```
+          
+     
+```{r, results='asis', echo=FALSE}
+# load xlxs library to read xlsx file, which will retain special characters
+library(xlsx)
+# load data.table package to index affiliations
+library(data.table)
+# read data, use UTF-8 encoding to preserve the special characters
+d <- read.xlsx( "Data Files/WSN2016_final presenters.xlsx", 1, encoding="UTF-8", stringsAsFactors=F )
+# only select the posters
+d <- d[d$final.presentation.type=="poster",]
+# sort alphabetically by first author
+d <- d[order(d$author.1),]
+
+# replace all occurrences of special characters with HTML entities
+d$title <- eval( parse( text=gsub("<U\\+([0-9]*)>","&#x\\1\\;", deparse(d$title)) ))
+d$abstract <- eval( parse( text=gsub("<U\\+([0-9]*)>","&#x\\1\\;", deparse(d$abstract)) )) 
+
+# make titles uppercase
+d$title <- gsub("(\\w*)", "\\U\\1", d$title, perl=TRUE)
+# make all text in html characters lowercase - only one case, but need a better solution to all us to ignore html characters when making things uppercase
+d$title <- gsub( "(&\\w+;)", "\\L\\1", d$title, perl=TRUE)
+
+# save column names for finding all authors and affiliations
+column_names <- names(d)
+# set basenames for finding author and affiliation columns (e.g. author.1, affiliation.15)
+basenames <- c("author", "affiliation")
+
+# There are some NAs in the column "judged" we will mark as "No" to avoid problems with logical statements in for loop below
+d$judged[is.na(d$judged)] <- "No"
+# if presenter is student who wants to be judged, use a dagger to mark their name
+d$dagger <- ifelse( d$judged=="Yes", "&dagger;", "" )
+
+# There are also some NAs for presenter number. Make these all 1
+d$presenter.number[is.na(d$presenter.number)] <- "1"
+
+
+# for loop to look at each row of the spreadsheet, compile all authors and match with their affiliations, make affiliation footnotes, and concatenate and print the abstracgt
+for(i in 1:nrow(d)){
+     
+  footnoted_lists <- lapply(basenames, function(basename) {
+    auths <-d[i,grep(paste0(basename, "\\.[0-9]"), column_names)]
+    auths <- auths[!is.na(auths)] # trim empty
+         }
+    )
+     dt <- data.table(matrix(unlist(footnoted_lists),ncol=2))
+     dt[, idx := .GRP, by = V2]
+     if(length(unique(dt$idx))==1) dt$idx <- 0
+     # asertisk to mark the presenter
+     dt$presenter <- ""
+     dt$presenter[as.numeric(d$presenter.number[i])] <- "^``*``^"
+
+  
+  # paste all of the superscripts for authors, as well as asterisk for presenter
+  auths <- ifelse(length(unique(dt$idx))>1, paste0(footnoted_lists[[1]], dt$presenter, collapse=", "), paste0(footnoted_lists[[1]], dt$presenter,collapse=", "))
+  
+  
+  # print everything in order with italics and bold where needed
+     cat(paste0("**",d$dagger[i],auths,"**","  \n",
+         d$title[i],"  \n",
+     "  \n", "  \n"))
+}
+```
+

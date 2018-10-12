@@ -1,0 +1,105 @@
+---
+output: word_document
+---
+
+**WSN 2016 TALK TITLES ORGANIZED INTO SESSIONS**
+
+This MS Word document was  created with RMarkdown using a report generated in CVENT and information from the scheduling team
+
+
+ Attribute     | Meta-Data
+---------------|-------------------------------------------|
+ Script        | WSN2016_talk table_RMarkdown.Rmd   |
+ Author        | Matt Whalen                               |
+ Date          | 09 October, 2016                          |
+
+
+***
+
+First thing that appears in the output are the r packages used in data processing. Ignore or delete this.
+There may also be errors that show up in the output, which may have resulted from registration errors. Ignore these for now.
+
+***
+
+```{r, results='asis', echo=FALSE}
+# load xlxs library to read xlsx file, which will retain special characters
+library(xlsx)
+# load Hadleyverse stuff
+library(dplyr)
+library(plyr)
+# load library for making tables
+library(pander)
+
+# read data tables, use UTF-8 encoding to preserve the special characters
+d.sched <- read.xlsx( "Data Files/WSN 2016 - talk list for formatting.xlsx", 1, encoding="UTF-8", stringsAsFactors=F )
+# rename columns to match original dataset
+names(d.sched) <- c("session","spot","author.1","title")
+refd <- read.xlsx( "Data Files/WSN2016_final presenters.xlsx", 1, encoding="UTF-8", stringsAsFactors=F )
+
+# merge data.frames (based on 1st author) so that we can retain authors (up to fourth), presenter.number, and daggers for judged presentations (don't need lots of other )
+refd.sel <- select( refd, author.1, author.2, author.3, author.4, title, judged, presenter.number, final.presentation.type )
+ref.talks <- refd.sel[ refd.sel$final.presentation.type=="talk", ]
+
+# left_join data.frames, based on author.1 because some titles have been edited
+d <- left_join( d.sched, ref.talks, by=c("author.1","title") )
+# is anything in one dataset that is not in the other?
+# anti_join( d.sched, ref.talks, by=c("author.1","title") )
+# anti_join( ref.talks, d.sched, by=c("author.1","title") )
+
+# replace all occurrences of special characters with HTML entities
+d$title <- eval( parse( text=gsub("<U\\+([0-9]*)>","&#x\\1\\;", deparse(d$title)) ))
+
+# make titles uppercase, except things in html characters (NEED A BETTER FIX HERE)
+d$title <- gsub("(\\w*)", "\\U\\1", d$title, perl=TRUE)
+# make all text in html characters lowercase - only one case, but need a better solution to all us to ignore html characters when making things uppercase
+d$title <- gsub( "(&\\w+;)", "\\L\\1", d$title, perl=TRUE)
+
+
+# save column names for finding presenting author
+auths <- select(d, author.1,author.2,author.3,author.4)
+d$presenter.number <- as.numeric( d$presenter.number )
+d$presenter.number[is.na(d$presenter.number)] <- 1
+d$presenting.author <- NULL
+for(i in 1:nrow(d)){
+  d$presenting.author[i] <- auths[i,d$presenter.number[i]]
+}
+  
+# There are some NAs in the column "judged" we will mark as "No" to avoid problems with logical statements in for loop below
+d$judged[is.na(d$judged)] <- "No"
+d$dagger <- ifelse( d$judged=="Yes", "&dagger;", "" )
+
+
+# make a table 
+d$cell <- NULL
+for(i in 1:nrow(d)){
+  d$cell[i] <- paste0("**",d$dagger[i],d$presenting.author[i],"**","  \n","<br/>",
+         d$title[i])
+}
+
+
+# arrange table cells by session and spot
+# fill a matrix with 42 columns and 9 rows
+mat <- matrix( nrow=9, ncol=length(unique(d$session) ))
+for(i in unique(d$session) ) {
+  for(j in 1:9) {   # max of 9 talks per session
+    mat[j,i] <- ifelse( length(d$cell[ d$session==i & d$spot==j ])>0, d$cell[ d$session==i & d$spot==j ], "--" )
+    }
+}
+# convert to data.frame
+df <- as.data.frame(mat)
+names(df) <-   paste0("session",1:42)
+
+
+pandoc.table(df, keep.line.breaks = TRUE, justify='left', split.tables=100, split.cells=20)
+
+
+# # for loop to look at each row of the spreadsheet, pick presenting authors, mark presenters that need to be judged, and concatenate and print the whole thing
+# for(i in 1:nrow(d)){
+# # print everything in order with italics and bold where needed
+#      cat(paste0(d$session[i]," \n",
+#          "**",d$dagger[i],d$presenting.author[i],"**","  \n",
+#          d$title[i],"  \n",
+#      "\n", "\n"))
+# }
+```
+
