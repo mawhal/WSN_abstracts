@@ -3,14 +3,14 @@ output:
   word_document: default
 ---
 
-**WSN 2018 ABSTRACTS**
+**WSN 2018 AUTHOR LISTS**
 
 This MS Word document was  created with RMarkdown using a report generated in CVENT
 
 
  Attribute     | Meta-Data
 ---------------|-------------------------------------------|
- Script        | WSN2018_abstracts_ALL.Rmd                 |
+ Script        | WSN2018_AUTHOR_LISTS.Rmd                  |
  Author        | Matt Whalen, modified by Mairin Deith     |
  Date          | 18 October, 2018                          |
 
@@ -21,7 +21,7 @@ First thing that appears in the output are the r packages used in data processin
 There may also be errors that show up in the output, which may have resulted from registration errors. Ignore these for now.
 
 
-```{r, results='asis', echo=FALSE, warning=F}
+```{r, results='asis', echo=FALSE}
 # load data.table package to index affiliations
 library(data.table)
 # read data, use UTF-8 encoding to preserve the special characters
@@ -34,7 +34,7 @@ d$author.1[d$author.1==""] <- d$Full.Name[d$author.1==""]
 # sort alphabetically by first author
 d <- d[order(d$author.1),]
 # 358 presenters, 203 talks and 155 posters
-
+d <- d[1:200,]
 
 # replace all occurrences of special characters with HTML entities
 d$title <- eval( parse( text=gsub("<U\\+([0-9]*)>","&#x\\1\\;", deparse(d$title)) ))
@@ -65,10 +65,11 @@ d$final.presentation.type[ d$presentation.type=="Yes, I would like to present a 
 d$final.presentation.type[ d$presentation.type=="Yes, I would like to give a talk" ] <- "Contributed Talks"
 d$final.presentation.type[ d$final.choice=="Student Symposium" ] <- "Invited Symposium Speakers"
 d$final.presentation.type[ d$final.choice=="Plenary" ] <- "Invited Plenary Speaker"
+# unique(d$final.presentation.type)
 
 
-# for loop to separate abstracts by presentation type
-# First Symposium speakers, then contributed talks, then posters
+
+# for loop to separate authors by presentation type
 for(z in unique(d$final.presentation.type)[c(4,3,1,2)]) {
      d.tmp <- d[d$final.presentation.type==z,]
      # print header
@@ -83,7 +84,6 @@ for(i in 1:nrow(d.tmp)){
      
   footnoted_lists <- lapply(basenames, function(basename) {
     auths <-d.tmp[i,grep(paste0(basename, "\\.[0-9]"), column_names)]
-    auths <- auths[auths!=""] # trim empty
     auths <- auths[!is.na(auths)] # trim empty
          }
     )
@@ -94,20 +94,12 @@ for(i in 1:nrow(d.tmp)){
      dt$presenter <- ""
      dt$presenter[as.numeric(d.tmp$presenter.number)[i]] <- "^``*``^"
      
-    # paste all affiliations with number
-  footnoted_affs  <- ifelse(length(unique(footnoted_lists[[2]]))>1, paste0(1:length(unique(footnoted_lists[[2]]))," - ", unique(footnoted_lists[[2]]), collapse=", "), unique(footnoted_lists[[2]]))
-    if(is.na(footnoted_affs)){
-    footnoted_affs <- "No affiliation[s] given"
-    dt$idx <- 0
-    }
+  
   # paste all of the superscripts for authors, as well as asterisk for presenter
   footnoted_auths <- ifelse(length(unique(dt$idx))>1, paste0(footnoted_lists[[1]], " ^",dt$idx, "^", dt$presenter, collapse=", "), paste0(footnoted_lists[[1]], dt$presenter,collapse=", "))
-
+  
   # print everything in order with italics and bold where needed
-     cat(paste0("**",d.tmp$dagger[i],footnoted_auths,"**","  \n",
-         d.tmp$title[i],"  \n",
-         "*",footnoted_affs,"*","  \n",
-         d.tmp$abstract[i],"  \n", 
+     cat(paste0("**",d.tmp$dagger[i],footnoted_auths,"**","\n","\n", 
      "\n", "\n"))
 }}
 ```
