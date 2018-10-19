@@ -34,7 +34,7 @@ d$author.1[d$author.1==""] <- d$Full.Name[d$author.1==""]
 # sort alphabetically by first author
 d <- d[order(d$author.1),]
 # 358 presenters, 203 talks and 155 posters
-d <- d[1:200,]
+# d <- d[1:200,]
 
 # replace all occurrences of special characters with HTML entities
 d$title <- eval( parse( text=gsub("<U\\+([0-9]*)>","&#x\\1\\;", deparse(d$title)) ))
@@ -65,7 +65,7 @@ d$final.presentation.type[ d$presentation.type=="Yes, I would like to present a 
 d$final.presentation.type[ d$presentation.type=="Yes, I would like to give a talk" ] <- "Contributed Talks"
 d$final.presentation.type[ d$final.choice=="Student Symposium" ] <- "Invited Symposium Speakers"
 d$final.presentation.type[ d$final.choice=="Plenary" ] <- "Invited Plenary Speaker"
-# unique(d$final.presentation.type)
+unique(d$final.presentation.type)
 
 
 
@@ -85,6 +85,11 @@ for(i in 1:nrow(d.tmp)){
   footnoted_lists <- lapply(basenames, function(basename) {
     auths <-d.tmp[i,grep(paste0(basename, "\\.[0-9]"), column_names)]
     auths <- auths[!is.na(auths)] # trim empty
+    auths <- auths[auths!=""]
+    # Ensure authors' names are in Title Case
+    replacement.phrase <- "\\b([[:alpha:]])([[:alpha:]]+)"
+    gsub(replacement.phrase, "\\U\\1\\L\\2", auths, perl=T)
+
          }
     )
      dt <- data.table(matrix(unlist(footnoted_lists),ncol=2))
@@ -101,6 +106,7 @@ for(i in 1:nrow(d.tmp)){
   # print everything in order with italics and bold where needed
      cat(paste0("**",d.tmp$dagger[i],footnoted_auths,"**","\n","\n", 
      "\n", "\n"))
-}}
+}
+}
 ```
 
