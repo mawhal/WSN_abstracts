@@ -85,6 +85,9 @@ for(i in 1:nrow(d.tmp)){
     auths <-d.tmp[i,grep(paste0(basename, "\\.[0-9]"), column_names)]
     auths <- auths[auths!=""] # trim empty
     auths <- auths[!is.na(auths)] # trim empty
+    # Ensure authors' names are in Title Case
+    replacement.phrase <- "\\b([[:alpha:]])([[:alpha:]]+)"
+    gsub(replacement.phrase, "\\U\\1\\L\\2", auths, perl=T)
          }
     )
      dt <- data.table(matrix(unlist(footnoted_lists),ncol=2))
