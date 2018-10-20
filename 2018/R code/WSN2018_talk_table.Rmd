@@ -1,0 +1,154 @@
+---
+output: word_document
+---
+
+**WSN 2018 TALK TITLES ORGANIZED INTO SESSIONS**
+
+This MS Word document was  created with RMarkdown using a report generated in CVENT and information from the scheduling team
+
+
+ Attribute     | Meta-Data
+---------------|-------------------------------------------|
+ Script        | WSN2018_talk_table.Rmd   |
+ Author        | Matt Whalen, modified by Mairin Deith     |
+ Date          | 18 October, 2018                          |
+
+
+***
+
+First thing that appears in the output are the r packages used in data processing. Ignore or delete this.
+There may also be errors that show up in the output, which may have resulted from registration errors. Ignore these for now.
+
+***
+
+```{r, results='asis', echo=FALSE}
+# load Hadleyverse stuff
+library(tidyverse)
+# load library for making tables
+library(pander)
+# read CSV downloaded from Google sheets, writes special characters in UTF-8
+# use UTF-8 encoding to preserve the special characters
+d.sched <- read.csv( "../Data Files/WSN2018_abstracts_sessions_session.num.update.csv", 1, encoding="UTF-8", stringsAsFactors=F )
+### # depreciated
+### # rename columns to match original dataset
+### names(d.sched) <- c("session","spot","author.1","title")
+### refd <- read.xlsx( "Data Files/WSN2016_final presenters.xlsx", 1, encoding="UTF-8", stringsAsFactors=F )
+
+# merge data.frames (based on 1st author) so that we can retain authors (up to fourth), presenter.number, and daggers for judged presentations (don't need lots of other )
+# Remove unnecessary information (abstracts, affiliations, Email.address
+cut.cols <- c('Email.Address','Original.Response.Date','abstract',paste0('affiliation.',1:15),'be.judge','author.number','choice.1','choice.2','judged.category','poster','possible.new.session')
+
+# Create dataframe d to include only rows for talks
+d <- d.sched[d.sched$presentation.type=="Yes, I would like to give a talk",!(colnames(d.sched) %in% cut.cols)]
+
+# remove plenary, speed talks, and Student Symposium
+other.talks <- c('Speed Talk','Plenary','Student Symposium')
+d <- d[!(d$final.choice %in% other.talks),]
+
+# left_join data.frames, based on author.1 because some titles have been edited
+# d <- left_join( d.sched, ref.talks, by=c("author.1","title") )
+# is anything in one dataset that is not in the other?
+# anti_join( d.sched, ref.talks, by=c("author.1","title") )
+# anti_join( ref.talks, d.sched, by=c("author.1","title") )
+
+# replace all occurrences of special characters with HTML entities
+d$title <- eval( parse( text=gsub("<U\\+([0-9]*)>","&#x\\1\\;", deparse(d$title)) ))
+
+# make titles uppercase, except things in html characters (NEED A BETTER FIX HERE)
+d$title <- gsub("(\\w*)", "\\U\\1", d$title, perl=TRUE)
+# make all text in html characters lowercase - only one case, but need a better solution to all us to ignore html characters when making things uppercase
+d$title <- gsub( "(&\\w+;)", "\\L\\1", d$title, perl=TRUE)
+
+
+# save column names for finding presenting author
+auths <- select(d, paste0("author.",1:15))
+d$presenter.number <- as.numeric( d$presenter.number )
+d$presenter.number[is.na(d$presenter.number)] <- 1
+d$presenting.author <- NULL
+for(i in 1:nrow(d)){
+  # Ensure authors' names are in Title Case
+  replacement.phrase <- "\\b([[:alpha:]])([[:alpha:]]+)"
+  d$presenting.author[i] <- gsub(replacement.phrase, "\\U\\1\\L\\2", auths[i,d$presenter.number[i]], perl=T)
+}
+  
+# There are some NAs in the column "judged" we will mark as "No" to avoid problems with logical statements in for loop below
+d$dagger <- ifelse( d$judged %in% c("Yes and I am an undergraduate student", "Yes and I am a graduate student"), "&dagger;", "" )
+
+# make a table 
+d$cell <- NULL
+for(i in 1:nrow(d)){
+  d$cell[i] <- paste0("**",d$dagger[i],d$presenting.author[i],"**","  \n","<br/>",
+         d$title[i])
+}
+
+# some talks have presenting author > 4, shouldn't matter as this only shows presenting speaker
+
+# arrange table cells by session and spot
+# fill a matrix with X columns (number of full sessions, no speed talks or plenary) 
+#    and 6 rows (number of talks per session)
+
+talks.per.session = 6
+
+d$spot <- NaN
+d$numbered.final.choice <- d$final.choice
+d$final.choice[d$final.choice=="MPA"] <- "Marine Protected Areas"
+n.sessions <- unique(d[c('final.choice','session.number')])
+
+for(n in 1:nrow(n.sessions)){
+  s.count <- sum(n.sessions$final.choice==n.sessions$final.choice[n])
+  if(s.count==1){
+    # Ignore sessions with only 1 session
+    next
+  } else {
+    s.number.tmp <- n.sessions[(n.sessions$final.choice==n.sessions$final.choice[n]),]
+    for(i in 1:nrow(s.number.tmp)){
+      d$numbered.final.choice[d$session.number==s.number.tmp$session.number[i]] <- paste(s.number.tmp$final.choice[i],i,sep=" ")
+    }
+  }
+} 
+
+# Originally the length of unique sessions, but this doesn't work when there are missing session #s 
+mat <- matrix( nrow=talks.per.session, ncol=length(unique(d$session.number) ))
+for(i in 1:length(unique(d$session.number) )) {
+  s.number <- unique(d$session.number)[i]
+  d.tmp <- d[d$session.number==s.number,]
+  # Should be a vector with only one name in it
+  # s.name <- unique(d.tmp$final.choice)
+  # session.names <- c(session.names, s.name)
+  # n.session <- sum(session.names==s.name)
+  # Set the new name to be " 1", " 2", etc for repeats
+  s.number <- unique(d$session.number)[i]
+  # apply random spot numbers in each session
+  n.spots <- nrow(d.tmp)
+  if(n.spots>talks.per.session){
+    print("Session error - more talks than spots")
+    print(i)
+    break
+  } else {
+    d$spot[d$session.number==s.number] <- sample(1:n.spots)
+  }
+  for(j in 1:talks.per.session) {   # max of 6 talks per session
+    mat[j,i] <- ifelse( length(d$cell[ d$session.number==s.number & d$spot==j ])>0, d$cell[ d$session.number==s.number & d$spot==j ], "--" )
+    }
+}
+# convert to data.frame
+df <- as.data.frame(mat)
+names(df) <- unique(d$numbered.final.choice)
+
+# alternative, use session name
+# d$final.choice[d$final.choice=="MPA"] <- "Marine Protected Areas"
+# d$final.choice[d$session.number]
+
+pandoc.table(df, keep.line.breaks = TRUE, justify='left', split.tables=100, split.cells=20)
+
+
+# # for loop to look at each row of the spreadsheet, pick presenting authors, mark presenters that need to be judged, and concatenate and print the whole thing
+# for(i in 1:nrow(d)){
+# # print everything in order with italics and bold where needed
+#      cat(paste0(d$session[i]," \n",
+#          "**",d$dagger[i],d$presenting.author[i],"**","  \n",
+#          d$title[i],"  \n",
+#      "\n", "\n"))
+# }
+```
+

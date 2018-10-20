@@ -25,6 +25,7 @@ There may also be errors that show up in the output, which may have resulted fro
 # load data.table package to index affiliations
 library(data.table)
 # read data, use UTF-8 encoding to preserve the special characters
+# read CSV downloaded from Google sheets, preserves special characters in UTF-8
 d <- read.csv( "../Data Files/WSN2018_abstracts_sessions.csv", 1, encoding="UTF-8", stringsAsFactors=F )
 # 636 participants
 # omit registrants who are not presenting
@@ -34,7 +35,6 @@ d$author.1[d$author.1==""] <- d$Full.Name[d$author.1==""]
 # sort alphabetically by first author
 d <- d[order(d$author.1),]
 # 358 presenters, 203 talks and 155 posters
-# d <- d[1:200,]
 
 # replace all occurrences of special characters with HTML entities
 d$title <- eval( parse( text=gsub("<U\\+([0-9]*)>","&#x\\1\\;", deparse(d$title)) ))

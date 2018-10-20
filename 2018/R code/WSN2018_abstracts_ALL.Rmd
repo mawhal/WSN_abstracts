@@ -25,6 +25,7 @@ There may also be errors that show up in the output, which may have resulted fro
 # load data.table package to index affiliations
 library(data.table)
 # read data, use UTF-8 encoding to preserve the special characters
+# read CSV downloaded from Google sheets, preserves special characters in UTF-8
 d <- read.csv( "../Data Files/WSN2018_abstracts_sessions.csv", 1, encoding="UTF-8", stringsAsFactors=F )
 # 636 participants
 # omit registrants who are not presenting
