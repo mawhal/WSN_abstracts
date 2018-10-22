@@ -41,8 +41,8 @@ cut.cols <- c('Email.Address','Original.Response.Date','abstract',paste0('affili
 # Create dataframe d to include only rows for talks
 d <- d.sched[d.sched$presentation.type=="Yes, I would like to give a talk",!(colnames(d.sched) %in% cut.cols)]
 
-# remove plenary, speed talks, and Student Symposium
-other.talks <- c('Speed Talk','Plenary','Student Symposium')
+# remove plenary and Student Symposium
+other.talks <- c('Plenary','Student Symposium')
 d <- d[!(d$final.choice %in% other.talks),]
 
 # left_join data.frames, based on author.1 because some titles have been edited
@@ -69,6 +69,18 @@ for(i in 1:nrow(d)){
   # Ensure authors' names are in Title Case
   replacement.phrase <- "\\b([[:alpha:]])([[:alpha:]]+)"
   d$presenting.author[i] <- gsub(replacement.phrase, "\\U\\1\\L\\2", auths[i,d$presenter.number[i]], perl=T)
+  # Ensure that the name follows convention (i.e. "Lastname, I. J.")
+  ### How many follow this pattern?
+  # Separate last name
+  auth.tmp <- d$presenting.author[i]
+  last.tmp <- strsplit(auth.tmp, split=",", fixed=T)[[1]][1]
+  first.tmp <- strsplit(auth.tmp, split=",", fixed=T)[[1]][2]
+  # Capital letters in first.tmp
+  first.split <- strsplit(first.tmp, split='')[[1]]
+  first.initials <- first.split[grepl("[A-Z]",first.split)]
+  first.initials <- paste(c(first.initials, ''), collapse=". ")
+  # Now tie in the last name, and only the first two initials if they are there
+  d$presenting.author[i] <- paste(last.tmp, substr(first.initials, start=1, stop=5), sep=", ")
 }
   
 # There are some NAs in the column "judged" we will mark as "No" to avoid problems with logical statements in for loop below
@@ -120,7 +132,7 @@ for(i in 1:length(unique(d$session.number) )) {
   s.number <- unique(d$session.number)[i]
   # apply random spot numbers in each session
   n.spots <- nrow(d.tmp)
-  if(n.spots>talks.per.session){
+  if(n.spots>talks.per.session && d.tmp$final.choice[1]!="Speed Talk"){
     print("Session error - more talks than spots")
     print(i)
     break
