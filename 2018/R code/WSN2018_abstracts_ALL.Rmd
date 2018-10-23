@@ -26,7 +26,7 @@ There may also be errors that show up in the output, which may have resulted fro
 library(data.table)
 # read data, use UTF-8 encoding to preserve the special characters
 # read CSV downloaded from Google sheets, preserves special characters in UTF-8
-d <- read.csv( "../Data Files/WSN2018_abstracts_sessions.csv", 1, encoding="UTF-8", stringsAsFactors=F )
+d <- read.csv( "../Data Files/WSN2018_abstracts_sessions_session.num.update.csv", 1, encoding="UTF-8", stringsAsFactors=F )
 # 636 participants
 # omit registrants who are not presenting
 d <- d[d$presentation.type %in% c('Yes, I would like to give a talk', 'Yes, I would like to present a poster'), ]
@@ -66,11 +66,12 @@ d$final.presentation.type[ d$presentation.type=="Yes, I would like to present a 
 d$final.presentation.type[ d$presentation.type=="Yes, I would like to give a talk" ] <- "Contributed Talks"
 d$final.presentation.type[ d$final.choice=="Student Symposium" ] <- "Invited Symposium Speakers"
 d$final.presentation.type[ d$final.choice=="Plenary" ] <- "Invited Plenary Speaker"
+d$final.presentation.type[ d$final.choice=="Speed Talk" ] <- "Speed Talk"
 
 
 # for loop to separate abstracts by presentation type
 # First Symposium speakers, then contributed talks, then posters
-for(z in unique(d$final.presentation.type)[c(4,3,1,2)]) {
+for(z in unique(d$final.presentation.type)[c(5,4,3,1,2)]) {
      d.tmp <- d[d$final.presentation.type==z,]
      # print header
      cat(paste0("**",z,"**", "  \n",

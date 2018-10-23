@@ -66,9 +66,9 @@ d$presenter.number <- as.numeric( d$presenter.number )
 d$presenter.number[is.na(d$presenter.number)] <- 1
 d$presenting.author <- NULL
 for(i in 1:nrow(d)){
-  # Ensure authors' names are in Title Case
-  replacement.phrase <- "\\b([[:alpha:]])([[:alpha:]]+)"
-  d$presenting.author[i] <- gsub(replacement.phrase, "\\U\\1\\L\\2", auths[i,d$presenter.number[i]], perl=T)
+  # Ensure authors' names are in Title Case - ISSUE: gets rid of double capitals (e.g. McDonald)
+  # replacement.phrase <- "\\b([[:alpha:]])([[:alpha:]]+)"
+  # d$presenting.author[i] <- gsub(replacement.phrase, "\\U\\1\\L\\2", auths[i,d$presenter.number[i]], perl=T)
   # Ensure that the name follows convention (i.e. "Lastname, I. J.")
   ### How many follow this pattern?
   # Separate last name

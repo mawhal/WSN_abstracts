@@ -29,23 +29,27 @@ This MS Word document was  created with RMarkdown using a report generated in CV
 # load data.table package to index affiliations
 library(data.table)
 # read data, use UTF-8 encoding to preserve the special characters
-d <- read.csv( "../Data Files/WSN2018_abstracts_sessions.csv", 1, encoding="UTF-8", stringsAsFactors=F )
+d <- read.csv( "../Data Files/WSN2018_abstracts_sessions_session.num.update.csv", 1, encoding="UTF-8", stringsAsFactors=F )
 # only select the posters
 d <- d[d$presentation.type == 'Yes, I would like to present a poster',]
 # sort alphabetically by first author
 d <- d[order(d$author.1),]
-
+set.seed(1234)
 ### Sort posters into two equal sessions and randomly assign numbers to posters in each session
-d$poster.session <- NaN
-session.1 <- sample(1:nrow(d),ceiling(nrow(d)/2))
-d$poster.session[session.1] <- 1
-d$poster.session[-session.1] <- 2
+# d$poster.session <- NaN
+# session.1 <- sample(1:nrow(d),ceiling(nrow(d)/2))
+# d$poster.session[session.1] <- 1
+# d$poster.session[-session.1] <- 2
 
-d$poster.number <- NaN
-d$poster.number[session.1] <- sample(1:length(session.1))
-d$poster.number[-session.1] <- sample(1:(nrow(d)-length(session.1)))
+### Choice of either continuous numbering (1:n posters) or numbering in two sessions (1:n/2 for each session)
+d$poster.number <- sample(1:nrow(d))
+### 2-session numbering
+# d$poster.number[session.1] <- sample(1:length(session.1))
+# d$poster.number[-session.1] <- sample(1:(nrow(d)-length(session.1)))
 
-d <- d[with(d, order(poster.session, poster.number)),]
+d <- d[with(d, order(poster.number)),]
+### 2-session numbering
+# d <- d[with(d, order(poster.session, poster.number)),]
 
 # replace all occurrences of special characters with HTML entities
 d$title <- eval( parse( text=gsub("<U\\+([0-9]*)>","&#x\\1\\;", deparse(d$title)) ))
@@ -71,22 +75,35 @@ d$presenter.number[is.na(d$presenter.number)] <- "1"
 
 
 # for loop to look at each row of the spreadsheet, compile all authors and match with their affiliations, make affiliation footnotes, and concatenate and print the abstracgt
-for(s in unique(d$poster.session)){
-  cat(paste0("**Session ",s,"**", "  \n \n"))
-  cat(paste0("``*`` ", "indicates presenting author", "  \n", 
-             "&dagger; indicates eligibility for Best Student Paper/Poster Award", "  \n","\n"))
-  d.tmp <- d[d$poster.session==s,]
+#for(s in unique(d$poster.session)){
+#for(s in unique(d$poster.session)){
+#  cat(paste0("**Session ",s,"**", "  \n \n"))
+cat(paste0("``*`` ", "indicates presenting author", "  \n", 
+           "&dagger; indicates eligibility for Best Student Paper/Poster Award", "  \n","\n"))
+#  d.tmp <- d[d$poster.session==s,]
+d.tmp <- d
 for(i in 1:nrow(d.tmp)){
-     
   footnoted_lists <- lapply(basenames, function(basename) {
     auths <-d.tmp[i,grep(paste0(basename, "\\.[0-9]"), column_names)]
     auths <- auths[!is.na(auths)] # trim empty
     auths <- auths[auths!=""]
         # Ensure authors' names are in Title Case
-    replacement.phrase <- "\\b([[:alpha:]])([[:alpha:]]+)"
-    gsub(replacement.phrase, "\\U\\1\\L\\2", auths, perl=T)
-         }
-    )
+    ### WARNING: Fails for names like McCallum, O'Dodd, etc. with two capital letters
+    # replacement.phrase <- "\\b([[:alpha:]])([[:alpha:]]+)"
+    # gsub(replacement.phrase, "\\U\\1\\L\\2", auths, perl=T)
+  }
+  )
+  for(n in 1:length(footnoted_lists[[1]])){
+        auth.tmp <- footnoted_lists[[1]][n]
+        last.tmp <- strsplit(auth.tmp, split=",", fixed=T)[[1]][1]
+        first.tmp <- strsplit(auth.tmp, split=",", fixed=T)[[1]][2]
+        # Capital letters in first.tmp
+        first.split <- strsplit(first.tmp, split='')[[1]]
+        first.initials <- first.split[grepl("[A-Z]",first.split)]
+        first.initials <- paste(c(first.initials, ''), collapse=". ")
+        # Now tie in the last name, and only the first two initials if they are there
+        footnoted_lists[[1]][n] <- paste(last.tmp, substr(first.initials, start=1, stop=5), sep=", ")
+    }
      dt <- data.table(matrix(unlist(footnoted_lists),ncol=2))
      dt[, idx := .GRP, by = V2]
      if(length(unique(dt$idx))==1) dt$idx <- 0
@@ -98,12 +115,13 @@ for(i in 1:nrow(d.tmp)){
   # paste all of the superscripts for authors, as well as asterisk for presenter
   auths <- ifelse(length(unique(dt$idx))>1, paste0(footnoted_lists[[1]], dt$presenter, collapse=", "), paste0(footnoted_lists[[1]], dt$presenter,collapse=", "))
   
-  
+  gsub(pattern=" ^``*``^","^``*``^",auths,fixed=T)
   # print everything in order with italics and bold where needed
-     cat(paste0(d.tmp$poster.number[i]," - ", "**",d.tmp$dagger[i],auths,"**","  \n",
+     cat(paste0(
+       #d.tmp$poster.number[i]," - ", 
+       "**",d.tmp$dagger[i],auths,"**","  \n",
          d.tmp$title[i],"  \n",
      "  \n", "  \n"))
-}
 }
 ```
 
