@@ -3,16 +3,16 @@ output:
   word_document: default
 ---
 
-**WSN 2018 POSTER LIST**
+**WSN 2019 POSTER LIST**
 
 This MS Word document was  created with RMarkdown using a report generated in CVENT
 
 
  Attribute     | Meta-Data
 ---------------|-------------------------------------------|
- Script        | WSN2018_poster_list.Rmd                   |
- Author        | Matt Whalen, modified by Mairin Deith     |
- Date          | 18 October, 2018                          |
+ Script        | WSN2019_poster_list.Rmd                   |
+ Author        | Matt Whalen & Mairin Deith     |
+ Date          | 21 October, 2019                          |
 
 
 
@@ -29,7 +29,7 @@ This MS Word document was  created with RMarkdown using a report generated in CV
 # load data.table package to index affiliations
 library(data.table)
 # read data, use UTF-8 encoding to preserve the special characters
-d <- read.csv( "../Data Files/WSN2018_abstracts_sessions_session.num.update.csv", 1, encoding="UTF-8", stringsAsFactors=F )
+d <- read.csv( "../Data Files/WSN2019_registrants_TalksPosters_TalkTableVersion.csv", 1, encoding="UTF-8", stringsAsFactors=F )
 # only select the posters
 d <- d[d$presentation.type == 'Yes, I would like to present a poster',]
 # sort alphabetically by first author
@@ -66,13 +66,14 @@ column_names <- names(d)
 basenames <- c("author", "affiliation")
 
 # There are some NAs in the column "judged" we will mark as "No" to avoid problems with logical statements in for loop below
-d$judged[is.na(d$judged)] <- "No"
+d$student.judging.category[is.na(d$student.judging.category)] <- ""
 # if presenter is student who wants to be judged, use a dagger to mark their name
-d$dagger <- ifelse( d$judged %in% c("Yes and I am an undergraduate student", "Yes and I am a graduate student"), "&dagger;", "" )
+d$dagger <- ifelse( d$student.judging.category != "","&dagger;", "")
 
 # There are also some NAs for presenter number. Make these all 1
-d$presenter.number[is.na(d$presenter.number)] <- "1"
-
+d$presenter.number <- "1"
+# Assume that if there is no author 1, the author is the registrant
+d$author.1[d$author.1==""] <- d$Full.Name[d$author.1==""]
 
 # for loop to look at each row of the spreadsheet, compile all authors and match with their affiliations, make affiliation footnotes, and concatenate and print the abstracgt
 #for(s in unique(d$poster.session)){
@@ -82,6 +83,9 @@ cat(paste0("``*`` ", "indicates presenting author", "  \n",
            "&dagger; indicates eligibility for Best Student Paper/Poster Award", "  \n","\n"))
 #  d.tmp <- d[d$poster.session==s,]
 d.tmp <- d
+
+
+
 for(i in 1:nrow(d.tmp)){
   footnoted_lists <- lapply(basenames, function(basename) {
     auths <-d.tmp[i,grep(paste0(basename, "\\.[0-9]"), column_names)]
@@ -111,7 +115,6 @@ for(i in 1:nrow(d.tmp)){
      dt$presenter <- ""
      dt$presenter[as.numeric(d$presenter.number[i])] <- "^``*``^"
 
-  
   # paste all of the superscripts for authors, as well as asterisk for presenter
   auths <- ifelse(length(unique(dt$idx))>1, paste0(footnoted_lists[[1]], dt$presenter, collapse=", "), paste0(footnoted_lists[[1]], dt$presenter,collapse=", "))
   
