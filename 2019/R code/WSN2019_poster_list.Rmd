@@ -121,7 +121,7 @@ for(i in 1:nrow(d.tmp)){
   gsub(pattern=" ^``*``^","^``*``^",auths,fixed=T)
   # print everything in order with italics and bold where needed
      cat(paste0(
-       #d.tmp$poster.number[i]," - ", 
+       d.tmp$poster.number[i]," - ", 
        "**",d.tmp$dagger[i],auths,"**","  \n",
          d.tmp$title[i],"  \n",
      "  \n", "  \n"))
