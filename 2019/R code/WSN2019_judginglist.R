@@ -1,0 +1,171 @@
+
+# load Hadleyverse stuff
+library(tidyverse)
+
+set.seed("777")
+
+# read CSV downloaded from Google sheets, writes special characters in UTF-8
+# use UTF-8 encoding to preserve the special characters
+d.sched <- read_csv( "../Data Files/WSN2019_registrants_TalksPosters.csv") #, 1, encoding="UTF-8", stringsAsFactors=F )
+
+### # depreciated
+### # rename columns to match original dataset
+### names(d.sched) <- c("session","spot","author.1","title")
+### refd <- read.xlsx( "Data Files/WSN2016_final presenters.xlsx", 1, encoding="UTF-8", stringsAsFactors=F )
+
+# merge data.frames (based on 1st author) so that we can retain authors (up to fourth), presenter.number, and daggers for judged presentations (don't need lots of other )
+# Remove unnecessary information (abstracts, affiliations, Email.address
+cut.cols <- c('Email.Address','Original.Response.Date','abstract',paste0('affiliation.',1:15),'be.judge','author.number','choice.1','choice.2','judged.category','poster','possible.new.session')
+
+# Create dataframe d to include only rows for talks
+d <- d.sched[d.sched$presentation.type=="Yes, I would like to give a talk",!(colnames(d.sched) %in% cut.cols)]
+
+# remove plenary and Student Symposium
+other.talks <- c('Plenary','Student Symposium', 'Presidential Symposium')
+d <- d[!(d$final.choice %in% other.talks),]
+
+# left_join data.frames, based on author.1 because some titles have been edited
+# d <- left_join( d.sched, ref.talks, by=c("author.1","title") )
+# is anything in one dataset that is not in the other?
+# anti_join( d.sched, ref.talks, by=c("author.1","title") )
+# anti_join( ref.talks, d.sched, by=c("author.1","title") )
+
+# replace all occurrences of special characters with HTML entities
+d$title <- eval( parse( text=gsub("<U\\+([0-9]*)>","&#x\\1\\;", deparse(d$title)) ))
+
+# make titles uppercase, except things in html characters (NEED A BETTER FIX HERE)
+d$title <- gsub("(\\w*)", "\\U\\1", d$title, perl=TRUE)
+# make all text in html characters lowercase - only one case, but need a better solution to all us to ignore html characters when making things uppercase
+d$title <- gsub( "(&\\w+;)", "\\L\\1", d$title, perl=TRUE)
+
+
+# save column names for finding presenting author
+auths <- select(d, paste0("author.",1:15))
+# New in 2019 - change this so that author 1 is default
+d$presenter.number <- 1
+d$presenter.number[is.na(d$presenter.number)] <- 1
+d$presenting.author <- d$author.1
+for(i in 1:nrow(d)){
+  # Ensure authors' names are in Title Case - ISSUE: gets rid of double capitals (e.g. McDonald)
+  # replacement.phrase <- "\\b([[:alpha:]])([[:alpha:]]+)"
+  # d$presenting.author[i] <- gsub(replacement.phrase, "\\U\\1\\L\\2", auths[i,d$presenter.number[i]], perl=T)
+  # Ensure that the name follows convention (i.e. "Lastname, I. J.")
+  ### How many follow this pattern?
+  # Separate last name
+  auth.tmp <- d$presenting.author[i]
+  last.tmp <- strsplit(auth.tmp, split=",", fixed=T)[[1]][1]
+  first.tmp <- strsplit(auth.tmp, split=",", fixed=T)[[1]][2]
+  # Capital letters in first.tmp
+  first.split <- strsplit(first.tmp, split='')[[1]]
+  first.initials <- first.split[grepl("[A-Z]",first.split)]
+  first.initials <- paste(c(first.initials, ''), collapse=". ")
+  # Now tie in the last name, and only the first two initials if they are there
+  d$presenting.author[i] <- paste(last.tmp, substr(first.initials, start=1, stop=5), sep=", ")
+}
+
+# There are some NAs in the column "judged" we will mark as "No" to avoid problems with logical statements in for loop below
+d$student.judging.type[d$student.judging.type==""] <- "No, I would not like my work to be judged/am not presenting"
+# if presenter is student who wants to be judged, use a dagger to mark their name
+d$dagger <- ifelse( d$student.judging.type %in% c("Yes, I would like to be judged in the GRADUATE STUDENT category",
+                                                  "Yes, I would like to be judged in the UNDERGRADUATE STUDENT category"), "&dagger;", "" )
+
+# make a table 
+d$cell <- NULL
+for(i in 1:nrow(d)){
+  d$cell[i] <- paste0("**",d$dagger[i],d$presenting.author[i],"**","  \n","<br/>",
+                      d$title[i])
+}
+
+# some talks have presenting author > 4, shouldn't matter as this only shows presenting speaker
+
+# arrange table cells by session and spot
+# fill a matrix with X columns (number of full sessions, no speed talks or plenary) 
+#    and 6 rows (number of talks per session)
+
+talks.per.session = 10
+
+d$spot <- NaN
+
+d$final.choice.timeorder <- plyr::mapvalues(d$session.num, 
+                                            from=c(9, 18, 23, 25,28,
+                                                   10,17,24,26,29,
+                                                   1,7,8,11,14,
+                                                   2,4,12,15,16,
+                                                   3,5,13,19,21,
+                                                   20,22,6,27,30), # 0, Speed Talks, can work here
+                                            to=c(1:30)
+)
+
+d$final.choice.timeorder
+d$session.num
+
+d$numbered.final.choice <- d$final.choice
+# d$final.choice[d$final.choice=="MPA"] <- "Marine Protected Areas"
+
+n.sessions <- unique(d[c('final.choice','final.choice.timeorder')])
+n.sessions <- n.sessions[order(n.sessions$final.choice.timeorder),]
+
+for(n in 1:nrow(n.sessions)){
+  s.count <- sum(n.sessions$final.choice==n.sessions$final.choice[n])
+  if(s.count==1){
+    # Ignore sessions with only 1 session
+    next
+  } else {
+    s.number.tmp <- n.sessions[(n.sessions$final.choice==n.sessions$final.choice[n]),]
+    for(i in 1:nrow(s.number.tmp)){
+      d$numbered.final.choice[d$session.num==s.number.tmp$session.num[i]] <- paste(s.number.tmp$final.choice[i],i,sep=" ")
+      n.sessions$final.choice[n.sessions$final.choice.timeorder==s.number.tmp$final.choice.timeorder[i]] <- paste(s.number.tmp$final.choice[i],i,sep=" ")
+    }
+  }
+} 
+
+View(d)
+# Output DF to include presenter name, student class, session number, Day/date, talk time, talk title
+judge_df <- data.frame()
+
+# Skip speed talks
+for(i in 2:nrow(n.sessions)){
+  s.number <- unique(n.sessions$final.choice.timeorder)[i]
+  d.tmp <- d[d$final.choice.timeorder==s.number,]
+  
+  if(s.number %in% 1:5){
+    start_date <- lubridate::dmy_hm("01-11-2019_13:15")
+  } else if(s.number %in% 6:10){
+    start_date <- lubridate::dmy_hm("01-11-2019_16:00")
+  } else if(s.number %in% 11:15){
+    start_date <- lubridate::dmy_hm("02-11-2019_10:30")
+  } else if(s.number %in% 16:20){
+    start_date <- lubridate::dmy_hm("02-11-2019_13:30")
+  } else if(s.number %in% 21:25){
+    start_date <- lubridate::dmy_hm("02-11-2019_16:00")
+  } else if(s.number %in% 26:30){
+    start_date <- lubridate::dmy_hm("03-11-2019_10:30")
+  }
+  
+  
+  # Should be a vector with only one name in it
+  # s.name <- unique(d.tmp$final.choice)
+  # session.names <- c(session.names, s.name)
+  # n.session <- sum(session.names==s.name)
+  # Set the new name to be " 1", " 2", etc for repeats
+  # s.number <- unique(d$final.choice.timeorder)[i]
+  # apply random spot numbers in each session
+  n.spots <- nrow(d.tmp)
+  if(n.spots > talks.per.session && d.tmp$final.choice[1]!="Speed Talk"){
+    print("Session error - more talks than spots")
+    print(i)
+    break
+  } else {
+    spots <- sample(1:n.spots)
+    d.tmp$spot <- spots
+    d$spot[d$final.choice.timeorder==s.number] <- spots
+    # d.spot.tmp <- sample(1:n.spots, replace = F)
+  }
+  for(j in 1:n.spots) {   # max of 10 talks per session
+    mat[j,i] <- ifelse( length(d$cell[ d$final.choice.timeorder==s.number & d$spot==j ])>0, d$cell[ d$final.choice.timeorder==s.number & d$spot==j ], "--" )
+  }
+}
+
+# convert to data.frame
+df <- as.data.frame(mat)
+names(df) <- n.sessions$final.choice

@@ -3,15 +3,15 @@ output:
   word_document: default
 ---
 
-**WSN 2019 POSTER LIST**
+**WSN 2019 POSTER LIST for JUDGES**
 
 This MS Word document was  created with RMarkdown using a report generated in CVENT
 
 
  Attribute     | Meta-Data
 ---------------|-------------------------------------------|
- Script        | WSN2019_poster_list.Rmd                   |
- Author        | Matt Whalen & Mairin Deith     |
+ Script        | WSN2019_posterjudging_list.Rmd                   |
+ Author        | Mairin Deith     |
  Date          | 21 October, 2019                          |
 
 
@@ -82,7 +82,7 @@ d$author.1[d$author.1==""] <- d$Full.Name[d$author.1==""]
 cat(paste0("``*`` ", "indicates presenting author", "  \n", 
            "&dagger; indicates eligibility for Best Student Paper/Poster Award", "  \n","\n"))
 #  d.tmp <- d[d$poster.session==s,]
-d.tmp <- d
+d.tmp <- d[d$student.judging.category != "",]
 
 
 
@@ -121,10 +121,11 @@ for(i in 1:nrow(d.tmp)){
   gsub(pattern=" ^``*``^","^``*``^",auths,fixed=T)
   # print everything in order with italics and bold where needed
      cat(paste0(
-       # d.tmp$poster.number[i]," - ", 
-       "**",d.tmp$dagger[i],auths,"**","  \n",
-         d.tmp$title[i],"  \n",
-     "  \n", "  \n"))
+       d.tmp$poster.number[i]," - ", 
+       "**",d.tmp$dagger[i],auths,"**","    \n",
+         d.tmp$title[i],"    \n",
+       paste0("**Category**: ", d.tmp$student.judging.category[i]),
+     "   \n", "   \n"))
 }
 ```
 
